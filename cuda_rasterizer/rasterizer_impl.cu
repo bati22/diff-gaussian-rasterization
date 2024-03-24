@@ -219,6 +219,10 @@ int CudaRasterizer::Rasterizer::forward(
 	int* radii,
 	bool debug)
 {
+  const int NUMBER_OF_GAUSSES = 100;
+  float* buff;
+  cudaMallocManaged(&buff, NUMBER_OF_GAUSSES * sizeof(float));
+
 	const float focal_y = height / (2.0f * tan_fovy);
 	const float focal_x = width / (2.0f * tan_fovx);
 
@@ -243,6 +247,15 @@ int CudaRasterizer::Rasterizer::forward(
 	{
 		throw std::runtime_error("For non-RGB, provide precomputed Gaussian colors!");
 	}
+
+  /*
+  std::cout << "Before preprocess: " << std::endl;
+  cudaMemcpy(buff, colors_precomp, sizeof(float) * NUMBER_OF_GAUSSES, cudaMemcpyDeviceToHost);
+  for(int i = 0; i < NUMBER_OF_GAUSSES; i++) {
+    std::cout << i << ": " << buff[i] << std::endl;
+  }
+  std::cout << std::endl;
+  */
 
 	// Run preprocessing per-Gaussian (transformation, bounding, conversion of SHs to RGB)
 	CHECK_CUDA(FORWARD::preprocess(
@@ -316,6 +329,16 @@ int CudaRasterizer::Rasterizer::forward(
 			binningState.point_list_keys,
 			imgState.ranges);
 	CHECK_CUDA(, debug)
+
+  /*
+  std::cout << "Before render: " << std::endl;
+  cudaMemcpy(buff, colors_precomp, sizeof(float) * NUMBER_OF_GAUSSES, cudaMemcpyDeviceToHost);
+  for(int i = 0; i < NUMBER_OF_GAUSSES; i++) {
+    std::cout << i << ": " << buff[i] << std::endl;
+  }
+  std::cout << std::endl;
+  */
+  
 
 	// Let each tile blend its range of Gaussians independently in parallel
 	const float* feature_ptr = colors_precomp != nullptr ? colors_precomp : geomState.rgb;
